@@ -6,16 +6,19 @@ mutable struct TimeData
     time::Int64
     allocs::Int64
     firstexec::Int64
+    data::Vector
 end
-TimeData(ncalls, time, allocs) = TimeData(ncalls, time, allocs, time)
-Base.copy(td::TimeData) = TimeData(td.ncalls, td.time, td.allocs)
-TimeData() = TimeData(0, 0, 0, time_ns())
+TimeData(ncalls, time, allocs, data) = TimeData(ncalls, time, allocs, time, data)
+TimeData(ncalls, time, allocs) = TimeData(ncalls, time, allocs, time, [])
+Base.copy(td::TimeData) = TimeData(td.ncalls, td.time, td.allocs, td.data)
+TimeData() = TimeData(0, 0, 0, time_ns(), [])
 
 function Base.:+(self::TimeData, other::TimeData)
     TimeData(self.ncalls + other.ncalls,
              self.time + other.time,
              self.allocs + other.allocs,
-             min(self.firstexec, other.firstexec))
+             min(self.firstexec, other.firstexec),
+             [self.data..., other.data...])
 end
 
 ###############
@@ -24,7 +27,6 @@ end
 mutable struct TimerOutput
     start_data::TimeData
     accumulated_data::TimeData
-    data::Vector
     inner_timers::Dict{String,TimerOutput}
     timer_stack::Vector{TimerOutput}
     name::String
@@ -39,17 +41,17 @@ mutable struct TimerOutput
         accumulated_data = TimeData()
         inner_timers = Dict{String,TimerOutput}()
         timer_stack = TimerOutput[]
-        return new(start_data, accumulated_data, [], inner_timers, timer_stack, label, false, true, (0, 0), "", nothing)
+        return new(start_data, accumulated_data, inner_timers, timer_stack, label, false, true, (0, 0), "", nothing)
     end
 
     # Jeez...
-    TimerOutput(start_data, accumulated_data, data, inner_timers, timer_stack, name, flattened, enabled, totmeasured, prev_timer_label,
-    prev_timer) = new(start_data, accumulated_data, data, inner_timers, timer_stack, name, flattened, enabled, totmeasured, prev_timer_label,
+    TimerOutput(start_data, accumulated_data, inner_timers, timer_stack, name, flattened, enabled, totmeasured, prev_timer_label,
+    prev_timer) = new(start_data, accumulated_data, inner_timers, timer_stack, name, flattened, enabled, totmeasured, prev_timer_label,
     prev_timer)
 
 end
 
-Base.copy(to::TimerOutput) = TimerOutput(copy(to.start_data), copy(to.accumulated_data), copy(to.data), copy(to.inner_timers),
+Base.copy(to::TimerOutput) = TimerOutput(copy(to.start_data), copy(to.accumulated_data), copy(to.inner_timers),
                                          copy(to.timer_stack), to.name, to.flattened, to.enabled, to.totmeasured, "", nothing)
 
 const DEFAULT_TIMER = TimerOutput()
@@ -109,7 +111,8 @@ function totmeasured(to::TimerOutput)
     for section in values(to.inner_timers)
         timedata = section.accumulated_data
         t += timedata.time
-        b += timedata.allocs
+        # b += timedata.allocs
+        b += Base.summarysize(timedata.data)
     end
     return t, b
 end
@@ -173,6 +176,10 @@ Base.@deprecate get_defaultimer get_defaulttimer
 
 # Macro
 macro timeit(args...)
+    for arg in args
+        @show typeof(arg)
+        @show arg
+    end
     return timer_expr(__module__, false, args...)
 end
 
@@ -205,27 +212,27 @@ function is_func_def(f)
     end
 end
 
-function timer_expr(m::Module, is_debug::Bool, ex::Expr)
+function timer_expr(m::Module, is_debug::Bool, ex::Union{Symbol, Expr})
     is_func_def(ex) && return timer_expr_func(m, is_debug, :($(TimerOutputs.DEFAULT_TIMER)), ex)
     return esc(_timer_expr(m, is_debug, :($(TimerOutputs).DEFAULT_TIMER), ex))
 end
 
-function timer_expr(m::Module, is_debug::Bool, label_or_to, ex::Expr)
+function timer_expr(m::Module, is_debug::Bool, label_or_to, ex::Union{Symbol, Expr})
     is_func_def(ex) && return timer_expr_func(m, is_debug, label_or_to, ex)
     return esc(_timer_expr(m, is_debug, :($(TimerOutputs).DEFAULT_TIMER), label_or_to, ex))
 end
 
-function timer_expr(m::Module, is_debug::Bool, label::String, ex::Expr)
+function timer_expr(m::Module, is_debug::Bool, label::String, ex::Union{Symbol, Expr})
     is_func_def(ex) && return timer_expr_func(m, is_debug, :($(TimerOutputs).DEFAULT_TIMER), ex, label)
     return esc(_timer_expr(m, is_debug, :($(TimerOutputs).DEFAULT_TIMER), label, ex))
 end
 
-function timer_expr(m::Module, is_debug::Bool, to, label, ex::Expr)
+function timer_expr(m::Module, is_debug::Bool, to, label, ex::Union{Symbol, Expr})
     is_func_def(ex) && return timer_expr_func(m, is_debug, to, ex, label)
     return esc(_timer_expr(m, is_debug, to, label, ex))
 end
 
-function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, TimerOutput}, label, ex::Expr)
+function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, TimerOutput}, label, ex::Union{Symbol, Expr})
     @gensym local_to enabled accumulated_data b₀ t₀ val
     timeit_block = quote
         $local_to = $to
@@ -240,6 +247,7 @@ function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, TimerOut
             quote
                 if $enabled
                     $(do_accumulate!)($accumulated_data, $t₀, $b₀)
+                    $(push!)($accumulated_data.data, $val)
                     $(pop!)($local_to)
                 end
             end))
@@ -259,7 +267,7 @@ function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, TimerOut
     end
 end
 
-function timer_expr_func(m::Module, is_debug::Bool, to, expr::Expr, label=nothing)
+function timer_expr_func(m::Module, is_debug::Bool, to, expr::Union{Symbol, Expr}, label=nothing)
     expr = macroexpand(m, expr)
     def = splitdef(expr)
 
@@ -280,8 +288,8 @@ function timer_expr_func(m::Module, is_debug::Bool, to, expr::Expr, label=nothin
 end
 
 function do_accumulate!(accumulated_data, t₀, b₀)
-    accumulated_data.time += time_ns() - t₀
-    accumulated_data.allocs += gc_bytes() - b₀
+    # accumulated_data.time += time_ns() - t₀
+    # accumulated_data.allocs += gc_bytes() - b₀
     accumulated_data.ncalls += 1
 end
 
@@ -318,6 +326,14 @@ end
 
 Base.haskey(to::TimerOutput, name::String) = haskey(to.inner_timers, name)
 Base.getindex(to::TimerOutput, name::String) = to.inner_timers[name]
+
+function getValudof(to::TimerOutput, name::String)
+    if !haskey(to, name)
+        error("to has not key ", name)
+    else
+        return to.inner_timers[name].accumulated_data.data
+    end
+end
 
 function flatten(to::TimerOutput)
     t, b = totmeasured(to)

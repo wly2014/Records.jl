@@ -139,7 +139,8 @@ end
 function _print_timer(io::IO, to::TimerOutput, ∑t::Integer, ∑b::Integer, indent::Integer, name_length, allocations, sortby, compact)
     accum_data = to.accumulated_data
     t = accum_data.time
-    b = accum_data.allocs
+    # b = accum_data.allocs
+    b = Base.summarysize(accum_data.data)
 
     name = truncdots(to.name, name_length - indent)
     print(io, " ")
