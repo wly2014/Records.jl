@@ -1,35 +1,35 @@
-using TimerOutputs
+using Records
 using Test
 
-import TimerOutputs: DEFAULT_TIMER, ncalls, flatten,
+import Records: DEFAULT_TIMER, ncalls, flatten,
                      prettytime, prettymemory, prettypercent, prettycount, todict
 
 reset_timer!()
 
 # Timing from modules that don't import much
 baremodule NoImports
-    using TimerOutputs
+    using Records
     using Base: sleep
-    @timeit "baresleep" sleep(0.1)
+    @recordit "baresleep" sleep(0.1)
 end
 
-@testset "TimerOutput" begin
+@testset "Record" begin
 
 @test "baresleep" in keys(DEFAULT_TIMER.inner_timers)
 
-to = TimerOutput()
-@timeit to "sleep" sleep(0.1)
-@timeit "sleep" sleep(0.1)
+to = Record()
+@recordit to "sleep" sleep(0.1)
+@recordit "sleep" sleep(0.1)
 
 @test "sleep" in keys(to.inner_timers)
 @test "sleep" in keys(DEFAULT_TIMER.inner_timers)
 
-@timeit to "multi statement" begin
+@recordit to "multi statement" begin
 1+1
 sleep(0.1)
 end
 
-@timeit "multi statement" begin
+@recordit "multi statement" begin
 1+1
 sleep(0.1)
 end
@@ -37,13 +37,13 @@ end
 @test "multi statement" in keys(to.inner_timers)
 @test "multi statement" in keys(DEFAULT_TIMER.inner_timers)
 
-@timeit to "sleep" sleep(0.1)
-@timeit to "sleep" sleep(0.1)
-@timeit to "sleep" sleep(0.1)
+@recordit to "sleep" sleep(0.1)
+@recordit to "sleep" sleep(0.1)
+@recordit to "sleep" sleep(0.1)
 
-@timeit "sleep" sleep(0.1)
-@timeit "sleep" sleep(0.1)
-@timeit "sleep" sleep(0.1)
+@recordit "sleep" sleep(0.1)
+@recordit "sleep" sleep(0.1)
+@recordit "sleep" sleep(0.1)
 
 @test haskey(to, "sleep")
 @test !haskey(to, "slep")
@@ -64,10 +64,10 @@ function foo(a)
     a+a
 end
 
-to2 = TimerOutput()
+to2 = Record()
 
-a = @timeit to2 "foo" foo(5)
-b = @timeit "foo" foo(5)
+a = @recordit to2 "foo" foo(5)
+b = @recordit "foo" foo(5)
 
 @test a === 10
 @test b === 10
@@ -75,17 +75,17 @@ b = @timeit "foo" foo(5)
 @test "foo" in collect(keys(DEFAULT_TIMER.inner_timers))
 
 # Test nested
-c = @timeit to2 "nest 1" begin
+c = @recordit to2 "nest 1" begin
     sleep(0.01)
-    @timeit to2 "nest 2" sleep(0.02)
-    @timeit to2 "nest 2" sleep(0.02)
+    @recordit to2 "nest 2" sleep(0.02)
+    @recordit to2 "nest 2" sleep(0.02)
     5
 end
 
-d = @timeit "nest 1" begin
+d = @recordit "nest 1" begin
     sleep(0.01)
-    @timeit "nest 2" sleep(0.02)
-    @timeit "nest 2" sleep(0.02)
+    @recordit "nest 2" sleep(0.02)
+    @recordit "nest 2" sleep(0.02)
     5
 end
 
@@ -98,14 +98,14 @@ end
 
 # test throws
 function foo2(v)
-    @timeit to "throwing" begin
+    @recordit to "throwing" begin
         sleep(0.01)
         print(v[6]) # OOB
     end
 end
 
 function foo3(v)
-    @timeit "throwing" begin
+    @recordit "throwing" begin
         sleep(0.01)
         print(v[6]) # OOB
     end
@@ -128,17 +128,17 @@ end
 
 reset_timer!(to)
 
-@timeit to "foo" begin
+@recordit to "foo" begin
     sleep(0.05)
-    @timeit to "bar" begin
-        @timeit to "foo" sleep(0.05)
-        @timeit to "foo" sleep(0.05)
-        @timeit to "baz" sleep(0.05)
-        @timeit to "bar" sleep(0.05)
+    @recordit to "bar" begin
+        @recordit to "foo" sleep(0.05)
+        @recordit to "foo" sleep(0.05)
+        @recordit to "baz" sleep(0.05)
+        @recordit to "bar" sleep(0.05)
     end
-    @timeit to "bur" sleep(0.025)
+    @recordit to "bur" sleep(0.025)
 end
-@timeit to "bur" sleep(0.025)
+@recordit to "bur" sleep(0.025)
 
 tom = flatten(to)
 @test ncalls(tom["foo"]) == 3
@@ -148,51 +148,51 @@ tom = flatten(to)
 
 function many_loops()
     for i in 1:10^7
-        @timeit to "loop" 1+1
+        @recordit to "loop" 1+1
     end
 end
 
 many_loops()
 
 a = 3
-@timeit to "a$a"  1+1
-@timeit "a$a" 1+1
+@recordit to "a$a"  1+1
+@recordit "a$a" 1+1
 
 @test "a3" in collect(keys(to.inner_timers))
 @test "a3" in collect(keys(DEFAULT_TIMER.inner_timers))
 
 reset_timer!(DEFAULT_TIMER)
-toz = TimerOutput()
-@timeit toz "foo" 1+1
+toz = Record()
+@recordit toz "foo" 1+1
 reset_timer!(toz)
-@timeit toz "foo" 1+1
+@recordit toz "foo" 1+1
 @test "foo" in keys(toz.inner_timers)
 
-tof = TimerOutput()
-@timeit tof ff1(x) = x
-@timeit tof ff2(x)::Float64 = x
-@timeit tof function ff3(x) x end
-@timeit tof function ff4(x)::Float64 x end
+tof = Record()
+@recordit tof ff1(x) = x
+@recordit tof ff2(x)::Float64 = x
+@recordit tof function ff3(x) x end
+@recordit tof function ff4(x)::Float64 x end
 
-@timeit ff5(x) = x
-@timeit ff6(x)::Float64 = x
-@timeit function ff7(x) x end
-@timeit function ff8(x)::Float64 x end
+@recordit ff5(x) = x
+@recordit ff6(x)::Float64 = x
+@recordit function ff7(x) x end
+@recordit function ff8(x)::Float64 x end
 
-@timeit ff9(x::T) where {T} = x
-@timeit (ff10(x::T)::Float64) where {T} = x
-@timeit function ff11(x::T) where {T} x end
-@timeit function ff12(x::T)::Float64 where {T} x end
+@recordit ff9(x::T) where {T} = x
+@recordit (ff10(x::T)::Float64) where {T} = x
+@recordit function ff11(x::T) where {T} x end
+@recordit function ff12(x::T)::Float64 where {T} x end
 
-@timeit "foo" ff13(x::T) where {T} = x
-@timeit "bar" (ff14(x::T)::Float64) where {T} = x
-@timeit "baz" function ff15(x::T) where {T} x end
-@timeit "quz" function ff16(x::T)::Float64 where {T} x end
+@recordit "foo" ff13(x::T) where {T} = x
+@recordit "bar" (ff14(x::T)::Float64) where {T} = x
+@recordit "baz" function ff15(x::T) where {T} x end
+@recordit "quz" function ff16(x::T)::Float64 where {T} x end
 
-@timeit tof "foo" ff17(x::T) where {T} = x
-@timeit tof "bar" (ff18(x::T)::Float64) where {T} = x
-@timeit tof "baz" function ff19(x::T) where {T} x end
-@timeit tof "quz" function ff20(x::T)::Float64 where {T} x end
+@recordit tof "foo" ff17(x::T) where {T} = x
+@recordit tof "bar" (ff18(x::T)::Float64) where {T} = x
+@recordit tof "baz" function ff19(x::T) where {T} x end
+@recordit tof "quz" function ff20(x::T)::Float64 where {T} x end
 
 for i in 1:2
     @test ff1(1) === 1
@@ -241,7 +241,7 @@ end
 
 function foo()
     reset_timer!()
-    @timeit "asdf" bar()
+    @recordit "asdf" bar()
 end
 
 bar() = print_timer()
@@ -286,10 +286,10 @@ for (c, str) in ((9999, "10.0k"), (99999, "100k"),
 end
 
 # `continue` inside a timeit section
-to_continue = TimerOutput()
+to_continue = Record()
 function continue_test()
    for i = 1:10
-       @timeit to_continue "x" @timeit to_continue "test" begin
+       @recordit to_continue "x" @recordit to_continue "test" begin
            continue
        end
    end
@@ -298,45 +298,45 @@ continue_test()
 @test isempty(to_continue.inner_timers["x"].inner_timers["test"].inner_timers)
 
 
-# Test @timeit_debug
-to_debug = TimerOutput()
+# Test @recordit_debug
+to_debug = Record()
 function debug_test()
-    @timeit_debug to_debug "sleep" sleep(0.001)
+    @recordit_debug to_debug "sleep" sleep(0.001)
 end
 
-TimerOutputs.disable_debug_timings(@__MODULE__)
+Records.disable_debug_timings(@__MODULE__)
 debug_test()
 @test !("sleep" in keys(to_debug.inner_timers))
-TimerOutputs.enable_debug_timings(@__MODULE__)
+Records.enable_debug_timings(@__MODULE__)
 debug_test()
 @test "sleep" in keys(to_debug.inner_timers)
 
 
-# Test functional-form @timeit_debug with @eval'ed functions
-to_debug = TimerOutput()
+# Test functional-form @recordit_debug with @eval'ed functions
+to_debug = Record()
 
-@timeit_debug to_debug function baz(x, y)
-    @timeit_debug to_debug "sleep" sleep(0.001)
+@recordit_debug to_debug function baz(x, y)
+    @recordit_debug to_debug "sleep" sleep(0.001)
     return x + y * x
 end
 
-TimerOutputs.disable_debug_timings(@__MODULE__)
+Records.disable_debug_timings(@__MODULE__)
 baz(1, 2.0)
 @test isempty(to_debug.inner_timers)
 
-TimerOutputs.enable_debug_timings(@__MODULE__)
+Records.enable_debug_timings(@__MODULE__)
 baz(1, 2.0)
 @test "baz" in keys(to_debug.inner_timers)
 @test "sleep" in keys(to_debug.inner_timers["baz"].inner_timers)
-TimerOutputs.disable_debug_timings(@__MODULE__)
+Records.disable_debug_timings(@__MODULE__)
 
-to = TimerOutput()
-@timeit to "section1" sleep(0.02)
-@timeit to "section2" begin
-    @timeit to "section2.1" sleep(0.1)
+to = Record()
+@recordit to "section1" sleep(0.02)
+@recordit to "section2" begin
+    @recordit to "section2.1" sleep(0.1)
     sleep(0.01)
 end
-TimerOutputs.complement!(to)
+Records.complement!(to)
 
 tom = flatten(to)
 @test ncalls(tom["~section2~"]) == 1
@@ -344,96 +344,96 @@ tom = flatten(to)
 end # testset
 
 struct Simulation
-   timer::TimerOutput
+   timer::Record
    # state
 end
 
 @testset "Timer from argument" begin
     get_timer(sim) = sim.timer
-    @timeit get_timer(sim) function step!(sim::Simulation)
+    @recordit get_timer(sim) function step!(sim::Simulation)
         # important computation
     end
-    sim = Simulation(TimerOutputs.TimerOutput())
+    sim = Simulation(Records.Record())
     step!(sim)
-    @test TimerOutputs.ncalls(sim.timer["step!"]) == 1
+    @test Records.ncalls(sim.timer["step!"]) == 1
     step!(sim)
-    @test TimerOutputs.ncalls(sim.timer["step!"]) == 2
+    @test Records.ncalls(sim.timer["step!"]) == 2
 
-    @timeit get_timer(args...; kw...) step2!(args...; kw...) = nothing
+    @recordit get_timer(args...; kw...) step2!(args...; kw...) = nothing
     step2!(sim)
-    @test TimerOutputs.ncalls(sim.timer["step!"]) == 2
-    @test TimerOutputs.ncalls(sim.timer["step2!"]) == 1
+    @test Records.ncalls(sim.timer["step!"]) == 2
+    @test Records.ncalls(sim.timer["step2!"]) == 1
     step2!(sim)
-    @test TimerOutputs.ncalls(sim.timer["step2!"]) == 2
+    @test Records.ncalls(sim.timer["step2!"]) == 2
 end
 
-# default timer without explicitly loading TimerOutputs
-TimerOutputs.reset_timer!()
+# default timer without explicitly loading Records
+Records.reset_timer!()
 module TestModule
-    using TimerOutputs: @timeit
+    using Records: @recordit
     foo(x) = x
-    @timeit "foo" foo(1)
+    @recordit "foo" foo(1)
 end
 @test "foo" in keys(DEFAULT_TIMER.inner_timers)
-TimerOutputs.reset_timer!()
+Records.reset_timer!()
 
 # Test sharing timers between modules
-@test !haskey(TimerOutputs._timers, "TestModule2")
-@test !haskey(TimerOutputs._timers, "my_timer")
+@test !haskey(Records._timers, "TestModule2")
+@test !haskey(Records._timers, "my_timer")
 
 to = get_timer("my_timer")
-@timeit to "foo" sleep(0.1)
+@recordit to "foo" sleep(0.1)
 @test ncalls(get_timer("my_timer")["foo"]) == 1
 
 module TestModule2
-    using TimerOutputs: @timeit, get_timer
+    using Records: @recordit, get_timer
     foo(x) = x
-    @timeit get_timer("TestModule2") "foo" foo(1)
-    @timeit get_timer("my_timer") "foo" foo(1)
+    @recordit get_timer("TestModule2") "foo" foo(1)
+    @recordit get_timer("my_timer") "foo" foo(1)
 end
 
 # Timer from module is accessible to root
-@test haskey(TimerOutputs._timers, "TestModule2")
+@test haskey(Records._timers, "TestModule2")
 @test ncalls(get_timer("TestModule2")["foo"]) == 1
 # Timer from root is accessible to module
 @test ncalls(get_timer("my_timer")["foo"]) == 2
 
 # Broken
 #=
-# Type inference with @timeit_debug
-@timeit_debug function make_zeros()
+# Type inference with @recordit_debug
+@recordit_debug function make_zeros()
    dims = (3, 4)
    zeros(dims)
 end
 @inferred make_zeros()
-TimerOutputs.enable_debug_timings(@__MODULE__)
+Records.enable_debug_timings(@__MODULE__)
 @inferred make_zeros()
 =#
 
-to = TimerOutput()
-@timeit_debug to function f(x)
+to = Record()
+@recordit_debug to function f(x)
    g(x) = 2x
    g(x)
 end
 @test f(3) == 6
-TimerOutputs.enable_debug_timings(@__MODULE__)
+Records.enable_debug_timings(@__MODULE__)
 @test f(3) == 6
-TimerOutputs.disable_debug_timings(@__MODULE__)
+Records.disable_debug_timings(@__MODULE__)
 
 @testset "Not too many allocations #59" begin
     function doit(timer, n)
         ret = 0
         for i in 1:n
-            @timeit timer "depth0" begin
-                @timeit timer "depth1" begin
-                    @timeit timer "depth2" begin
+            @recordit timer "depth0" begin
+                @recordit timer "depth1" begin
+                    @recordit timer "depth2" begin
                         ret += sin(i)
                     end
-                    @timeit timer "depth2b" begin
+                    @recordit timer "depth2b" begin
                         ret += cos(i)
                     end
                 end
-                @timeit timer "depth1b" begin
+                @recordit timer "depth1b" begin
 
                 end
             end
@@ -441,13 +441,13 @@ TimerOutputs.disable_debug_timings(@__MODULE__)
         ret
     end
 
-    to = TimerOutput()
+    to = Record()
     doit(to, 1)
-    a0 = TimerOutputs.allocated(to["depth0"])
-    a1 = TimerOutputs.allocated(to["depth0"]["depth1"])
-    a2 = TimerOutputs.allocated(to["depth0"]["depth1"]["depth2"])
+    a0 = Records.allocated(to["depth0"])
+    a1 = Records.allocated(to["depth0"]["depth1"])
+    a2 = Records.allocated(to["depth0"]["depth1"]["depth2"])
 
-    to = TimerOutput()
+    to = Record()
     doit(to, 100000)
 
     to0 = to["depth0"]
@@ -458,17 +458,17 @@ TimerOutputs.disable_debug_timings(@__MODULE__)
 
     # test that leaf timers add zero allocations
     # and other timers only add allocations once
-    @test TimerOutputs.allocated(to0) == a0
-    @test TimerOutputs.allocated(to1) == a1
-    @test TimerOutputs.allocated(to2) == a2
-    @test TimerOutputs.allocated(to1b) == 0
-    @test TimerOutputs.allocated(to2) == 0
-    @test TimerOutputs.allocated(to2b) == 0
+    @test Records.allocated(to0) == a0
+    @test Records.allocated(to1) == a1
+    @test Records.allocated(to2) == a2
+    @test Records.allocated(to1b) == 0
+    @test Records.allocated(to2) == 0
+    @test Records.allocated(to2b) == 0
 end
 
 @testset "disable enable" begin
-    to = TimerOutput()
-    ff1() = @timeit to "ff1" 1+1
+    to = Record()
+    ff1() = @recordit to "ff1" 1+1
     ff1()
     @test ncalls(to["ff1"]) == 1
     disable_timer!(to)
@@ -482,35 +482,35 @@ end
     @test ncalls(to["ff1"]) == 3
 end
 
-# Type inference with @timeit_debug
-@timeit_debug function make_zeros()
+# Type inference with @recordit_debug
+@recordit_debug function make_zeros()
    dims = (3, 4)
    zeros(dims)
 end
 @inferred make_zeros()
-TimerOutputs.enable_debug_timings(@__MODULE__)
+Records.enable_debug_timings(@__MODULE__)
 @inferred make_zeros()
 
 @testset "merge" begin
-    to1 = TimerOutput()
-    to2 = TimerOutput()
-    to3 = TimerOutput()
+    to1 = Record()
+    to2 = Record()
+    to3 = Record()
 
-    @timeit to1 "foo" identity(nothing)
-    @timeit to1 "baz" identity(nothing)
-    @timeit to1 "foobar" begin
-        @timeit to1 "foo" identity(nothing)
-        @timeit to1 "baz" identity(nothing)
+    @recordit to1 "foo" identity(nothing)
+    @recordit to1 "baz" identity(nothing)
+    @recordit to1 "foobar" begin
+        @recordit to1 "foo" identity(nothing)
+        @recordit to1 "baz" identity(nothing)
     end
 
-    @timeit to1 "bar" identity(nothing)
-    @timeit to2 "baz" identity(nothing)
-    @timeit to2 "foobar" begin
-        @timeit to2 "bar" identity(nothing)
-        @timeit to2 "baz" identity(nothing)
+    @recordit to1 "bar" identity(nothing)
+    @recordit to2 "baz" identity(nothing)
+    @recordit to2 "foobar" begin
+        @recordit to2 "bar" identity(nothing)
+        @recordit to2 "baz" identity(nothing)
     end
 
-    @timeit to3 "bar" identity(nothing)
+    @recordit to3 "bar" identity(nothing)
 
     to_merged = merge(to1, to2, to3)
     merge!(to1, to2, to3)
@@ -535,13 +535,13 @@ TimerOutputs.enable_debug_timings(@__MODULE__)
 end
 
 # Issue #118
-let to = TimerOutput()
-    @timeit to "foo" identity(nothing)
-    @timeit to "foobar" begin
-        @timeit to "foo" identity(nothing)
-        @timeit to "baz" identity(nothing)
+let to = Record()
+    @recordit to "foo" identity(nothing)
+    @recordit to "foobar" begin
+        @recordit to "foo" identity(nothing)
+        @recordit to "baz" identity(nothing)
     end
-    @timeit to "baz" identity(nothing)
+    @recordit to "baz" identity(nothing)
 
     @test ncalls(to.inner_timers["foo"]) == 1
     @test ncalls(to.inner_timers["foobar"]) == 1
@@ -551,22 +551,22 @@ let to = TimerOutput()
 end
 
 @testset "sortby firstexec" begin
-    to = TimerOutput()
-    @timeit to "cccc" sleep(0.1)
-    @timeit to "cccc" sleep(0.1)
-    @timeit to "bbbb" sleep(0.1)
-    @timeit to "aaaa" sleep(0.1)
-    @timeit to "cccc" sleep(0.1)
+    to = Record()
+    @recordit to "cccc" sleep(0.1)
+    @recordit to "cccc" sleep(0.1)
+    @recordit to "bbbb" sleep(0.1)
+    @recordit to "aaaa" sleep(0.1)
+    @recordit to "cccc" sleep(0.1)
 
     table = sprint((io, to)->show(io, to, sortby = :firstexec), to)
     @test match(r"cccc", table).offset < match(r"bbbb", table).offset < match(r"aaaa", table).offset
 
-    to = TimerOutput()
-    @timeit to "group" begin
-        @timeit to "aaaa" sleep(0.1)
-        @timeit to "nested_group" begin sleep(0.1)
-            @timeit to "bbbb" sleep(0.1)
-            @timeit to "cccc" sleep(0.1)
+    to = Record()
+    @recordit to "group" begin
+        @recordit to "aaaa" sleep(0.1)
+        @recordit to "nested_group" begin sleep(0.1)
+            @recordit to "bbbb" sleep(0.1)
+            @recordit to "cccc" sleep(0.1)
         end
     end
 
@@ -576,37 +576,37 @@ end
 
 @static if isdefined(Threads, Symbol("@spawn"))
 @testset "merge at custom points during multithreading" begin
-    to = TimerOutput()
-    @timeit to "1" begin
-        @timeit to "1.1" sleep(0.1)
-        @timeit to "1.2" sleep(0.1)
-        @timeit to "1.3" sleep(0.1)
+    to = Record()
+    @recordit to "1" begin
+        @recordit to "1.1" sleep(0.1)
+        @recordit to "1.2" sleep(0.1)
+        @recordit to "1.3" sleep(0.1)
     end
 
     @sync begin
-        @timeit to "2" Threads.@spawn begin
-            to2 = TimerOutput()
-            @timeit to2 "2.1" sleep(0.1)
-            @timeit to2 "2.2" sleep(0.1)
-            @timeit to2 "2.3" sleep(0.1)
+        @recordit to "2" Threads.@spawn begin
+            to2 = Record()
+            @recordit to2 "2.1" sleep(0.1)
+            @recordit to2 "2.2" sleep(0.1)
+            @recordit to2 "2.3" sleep(0.1)
             merge!(to, to2, tree_point = ["2"])
         end
 
-        @timeit to "3" Threads.@spawn begin
-            to3 = TimerOutput()
+        @recordit to "3" Threads.@spawn begin
+            to3 = Record()
             @sync begin
-                @timeit to3 "3.1" Threads.@spawn begin
-                    to31 = TimerOutput()
-                    @timeit to31 "3.1.1" sleep(0.1)
-                    @timeit to31 "3.1.2" sleep(0.1)
-                    @timeit to31 "3.1.3" sleep(0.1)
+                @recordit to3 "3.1" Threads.@spawn begin
+                    to31 = Record()
+                    @recordit to31 "3.1.1" sleep(0.1)
+                    @recordit to31 "3.1.2" sleep(0.1)
+                    @recordit to31 "3.1.3" sleep(0.1)
                     merge!(to3, to31, tree_point = ["3.1"])
                 end
-                @timeit to3 "3.2" Threads.@spawn begin
-                    to32 = TimerOutput()
-                    @timeit to32 "3.2.1" sleep(0.1)
-                    @timeit to32 "3.2.2" sleep(0.1)
-                    @timeit to32 "3.2.3" sleep(0.1)
+                @recordit to3 "3.2" Threads.@spawn begin
+                    to32 = Record()
+                    @recordit to32 "3.2.1" sleep(0.1)
+                    @recordit to32 "3.2.2" sleep(0.1)
+                    @recordit to32 "3.2.3" sleep(0.1)
                     merge!(to3, to32, tree_point = ["3.2"])
                 end
             end
@@ -657,21 +657,21 @@ end
 
 @testset "Serialization" begin
     # Setup a timer
-    to = TimerOutput()
-    @timeit to "foo" identity(nothing)
-    @timeit to "foobar" begin
-        @timeit to "foo" identity(nothing)
-        @timeit to "baz" identity(nothing)
+    to = Record()
+    @recordit to "foo" identity(nothing)
+    @recordit to "foobar" begin
+        @recordit to "foo" identity(nothing)
+        @recordit to "baz" identity(nothing)
     end
-    @timeit to "baz" identity(nothing)
+    @recordit to "baz" identity(nothing)
 
 
     function compare(to, d)
-        @test TimerOutputs.tottime(to) == d["total_time_ns"]
-        @test TimerOutputs.ncalls(to) == d["n_calls"]
-        @test TimerOutputs.totallocated(to) == d["total_allocated_bytes"]
-        @test TimerOutputs.allocated(to) == d["allocated_bytes"]
-        @test TimerOutputs.time(to) == d["time_ns"]
+        @test Records.tottime(to) == d["total_time_ns"]
+        @test Records.ncalls(to) == d["n_calls"]
+        @test Records.totallocated(to) == d["total_allocated_bytes"]
+        @test Records.allocated(to) == d["allocated_bytes"]
+        @test Records.time(to) == d["time_ns"]
         for ((k1, timer), (k2, obj)) in zip(to.inner_timers, d["inner_timers"])
             @test k1 == k2
             compare(timer, obj)
@@ -682,7 +682,7 @@ end
 end
 
 @testset "InstrumentedFunctions" begin
-    to = TimerOutput()
+    to = Record()
     f = to(x -> x^2, "f")
     @test isempty(to.inner_timers)
     f(1)

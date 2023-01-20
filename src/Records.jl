@@ -1,9 +1,9 @@
-module TimerOutputs
+module Records
 
 using ExprTools
 
 import Base: show, time_ns
-export TimerOutput, @timeit, @timeit_debug, reset_timer!, print_timer, timeit,
+export Record, @recordit, @recordit_debug, reset_timer!, print_timer, timeit,
                     enable_timer!, disable_timer!, @notimeit, get_timer, getValudof
 
 # https://github.com/JuliaLang/julia/pull/33717
@@ -19,7 +19,7 @@ end
 
 using Printf
 
-include("TimerOutput.jl")
+include("Record.jl")
 include("show.jl")
 include("utilities.jl")
 

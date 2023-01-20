@@ -1,10 +1,10 @@
 print_timer(; kwargs...) = print_timer(stdout; kwargs...)
-print_timer(to::TimerOutput; kwargs...) = print_timer(stdout, to; kwargs...)
+print_timer(to::Record; kwargs...) = print_timer(stdout, to; kwargs...)
 print_timer(io::IO; kwargs...) = print_timer(io, DEFAULT_TIMER; kwargs...)
-print_timer(io::IO, to::TimerOutput; kwargs...) = (show(io, to; kwargs...); println(io))
+print_timer(io::IO, to::Record; kwargs...) = (show(io, to; kwargs...); println(io))
 
-Base.show(to::TimerOutput; kwargs...) = show(stdout, to; kwargs...)
-function Base.show(io::IO, to::TimerOutput; allocations::Bool = true, sortby::Symbol = :time, linechars::Symbol = :unicode, compact::Bool = false, title::String = "")
+Base.show(to::Record; kwargs...) = show(stdout, to; kwargs...)
+function Base.show(io::IO, to::Record; allocations::Bool = true, sortby::Symbol = :time, linechars::Symbol = :unicode, compact::Bool = false, title::String = "")
     sortby  in (:time, :ncalls, :allocations, :name, :firstexec) || throw(ArgumentError("sortby should be :time, :allocations, :ncalls, :name, or :firstexec, got $sortby"))
     linechars in (:unicode, :ascii)                  || throw(ArgumentError("linechars should be :unicode or :ascii, got $linechars"))
 
@@ -136,7 +136,7 @@ function print_header(io, Δt, Δb, ∑t, ∑b, name_length, header, allocations
     end
 end
 
-function _print_timer(io::IO, to::TimerOutput, ∑t::Integer, ∑b::Integer, indent::Integer, name_length, allocations, sortby, compact)
+function _print_timer(io::IO, to::Record, ∑t::Integer, ∑b::Integer, indent::Integer, name_length, allocations, sortby, compact)
     accum_data = to.accumulated_data
     t = accum_data.time
     # b = accum_data.allocs
