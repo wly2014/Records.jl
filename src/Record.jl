@@ -236,14 +236,12 @@ function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, Record},
         if $enabled
             $accumulated_data = $(push!)($local_to, $label)
         end
-        $b₀ = $(gc_bytes)()
-        $t₀ = $(time_ns)()
         $(Expr(:tryfinally,
             :($val = $ex),
             quote
                 if $enabled
-                    $(do_accumulate!)($accumulated_data, $t₀, $b₀)
-                    $(push!)($accumulated_data.data, $val)
+                    $(do_accumulate!)($accumulated_data, $val)
+                    # $(push!)($accumulated_data.data, $(deepcopy)($val))
                     $(pop!)($local_to)
                 end
             end))
@@ -283,10 +281,11 @@ function timer_expr_func(m::Module, is_debug::Bool, to, expr::Union{Symbol, Expr
     return esc(combinedef(def))
 end
 
-function do_accumulate!(accumulated_data, t₀, b₀)
+function do_accumulate!(accumulated_data, data)
     # accumulated_data.time += time_ns() - t₀
     # accumulated_data.allocs += gc_bytes() - b₀
     accumulated_data.ncalls += 1
+    push!(accumulated_data.data, deepcopy(data))
 end
 
 

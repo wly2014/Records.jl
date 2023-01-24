@@ -10,6 +10,5 @@ function _precompile_()
   @assert Base.precompile(Tuple{typeof(print_record!), Record})
   @assert Base.precompile(Tuple{typeof(push!), Record, String})
   @assert Base.precompile(Tuple{typeof(reset_record!), Record})
-  @assert Base.precompile(Tuple{typeof(do_accumulate!), RecordData, UInt64, Int64})
   @assert Base.precompile(Tuple{Type{Record}, String})
 end
