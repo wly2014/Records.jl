@@ -3,8 +3,8 @@ module Records
 using ExprTools
 
 import Base: show, time_ns
-export Record, @recordit, @recordit_debug, reset_timer!, print_timer, timeit,
-                    enable_timer!, disable_timer!, @notimeit, get_timer, getValudof
+export Record, @recordit, @recordit_debug, reset_record!, print_record!,
+                    get_record, getValudof
 
 # https://github.com/JuliaLang/julia/pull/33717
 if VERSION < v"1.4.0-DEV.475"
@@ -30,7 +30,7 @@ end
 
 function __init__()
     # Reset DEFAULT_TIMER; otherwise starting time is the time of precompile
-    reset_timer!()
+    reset_record!()
 end
 
 end # module

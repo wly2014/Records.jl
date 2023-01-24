@@ -4,7 +4,7 @@ using Test
 import Records: DEFAULT_TIMER, ncalls, flatten,
                      prettytime, prettymemory, prettypercent, prettycount, todict
 
-reset_timer!()
+reset_record!()
 
 # Timing from modules that don't import much
 baremodule NoImports
@@ -52,8 +52,8 @@ end
 
 
 # Check reset works
-reset_timer!(to)
-reset_timer!()
+reset_record!(to)
+reset_record!()
 
 @test length(keys(to.inner_timers)) == 0
 @test length(keys(DEFAULT_TIMER.inner_timers)) == 0
@@ -126,7 +126,7 @@ end
 @test "throwing" in keys(to.inner_timers)
 @test "throwing" in keys(DEFAULT_TIMER.inner_timers)
 
-reset_timer!(to)
+reset_record!(to)
 
 @recordit to "foo" begin
     sleep(0.05)
@@ -161,10 +161,10 @@ a = 3
 @test "a3" in collect(keys(to.inner_timers))
 @test "a3" in collect(keys(DEFAULT_TIMER.inner_timers))
 
-reset_timer!(DEFAULT_TIMER)
+reset_record!(DEFAULT_TIMER)
 toz = Record()
 @recordit toz "foo" 1+1
-reset_timer!(toz)
+reset_record!(toz)
 @recordit toz "foo" 1+1
 @test "foo" in keys(toz.inner_timers)
 
@@ -240,11 +240,11 @@ end
 @test ncalls(DEFAULT_TIMER["quz"]) == 2
 
 function foo()
-    reset_timer!()
+    reset_record!()
     @recordit "asdf" bar()
 end
 
-bar() = print_timer()
+bar() = print_record!()
 
 foo()
 
@@ -349,8 +349,8 @@ struct Simulation
 end
 
 @testset "Timer from argument" begin
-    get_timer(sim) = sim.timer
-    @recordit get_timer(sim) function step!(sim::Simulation)
+    get_record(sim) = sim.timer
+    @recordit get_record(sim) function step!(sim::Simulation)
         # important computation
     end
     sim = Simulation(Records.Record())
@@ -359,7 +359,7 @@ end
     step!(sim)
     @test Records.ncalls(sim.timer["step!"]) == 2
 
-    @recordit get_timer(args...; kw...) step2!(args...; kw...) = nothing
+    @recordit get_record(args...; kw...) step2!(args...; kw...) = nothing
     step2!(sim)
     @test Records.ncalls(sim.timer["step!"]) == 2
     @test Records.ncalls(sim.timer["step2!"]) == 1
@@ -368,35 +368,35 @@ end
 end
 
 # default timer without explicitly loading Records
-Records.reset_timer!()
+Records.reset_record!()
 module TestModule
     using Records: @recordit
     foo(x) = x
     @recordit "foo" foo(1)
 end
 @test "foo" in keys(DEFAULT_TIMER.inner_timers)
-Records.reset_timer!()
+Records.reset_record!()
 
 # Test sharing timers between modules
 @test !haskey(Records._timers, "TestModule2")
 @test !haskey(Records._timers, "my_timer")
 
-to = get_timer("my_timer")
+to = get_record("my_timer")
 @recordit to "foo" sleep(0.1)
-@test ncalls(get_timer("my_timer")["foo"]) == 1
+@test ncalls(get_record("my_timer")["foo"]) == 1
 
 module TestModule2
-    using Records: @recordit, get_timer
+    using Records: @recordit, get_record
     foo(x) = x
-    @recordit get_timer("TestModule2") "foo" foo(1)
-    @recordit get_timer("my_timer") "foo" foo(1)
+    @recordit get_record("TestModule2") "foo" foo(1)
+    @recordit get_record("my_timer") "foo" foo(1)
 end
 
 # Timer from module is accessible to root
 @test haskey(Records._timers, "TestModule2")
-@test ncalls(get_timer("TestModule2")["foo"]) == 1
+@test ncalls(get_record("TestModule2")["foo"]) == 1
 # Timer from root is accessible to module
-@test ncalls(get_timer("my_timer")["foo"]) == 2
+@test ncalls(get_record("my_timer")["foo"]) == 2
 
 # Broken
 #=

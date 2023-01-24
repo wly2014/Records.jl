@@ -58,12 +58,12 @@ const DEFAULT_TIMER = Record()
 const _timers = Dict{String, Record}("Default" => DEFAULT_TIMER)
 const _timers_lock = ReentrantLock() # needed for adding new timers on different threads
 """
-    get_timer(name::String)
+    get_record(name::String)
 
 Returns the `Record` associated with `name`.
 If no timers are associated with `name`, a new `Record` will be created.
 """
-function get_timer(name::String)
+function get_record(name::String)
     lock(_timers_lock) do
         if !haskey(_timers, name)
             _timers[name] = Record(name)
@@ -290,8 +290,8 @@ function do_accumulate!(accumulated_data, t₀, b₀)
 end
 
 
-reset_timer!() = reset_timer!(DEFAULT_TIMER)
-function reset_timer!(to::Record)
+reset_record!() = reset_record!(DEFAULT_TIMER)
+function reset_record!(to::Record)
     to.inner_timers = Dict{String,Record}()
     to.start_data = RecordData(0, time_ns(), gc_bytes())
     to.accumulated_data = RecordData()
@@ -299,25 +299,6 @@ function reset_timer!(to::Record)
     to.prev_timer = nothing
     resize!(to.timer_stack, 0)
     return to
-end
-
-# We can remove this now that the @recordit macro is exception safe.
-# Doesn't hurt to keep it for a while though
-timeit(f::Function, label::String) = timeit(f, DEFAULT_TIMER, label)
-function timeit(f::Function, to::Record, label::String)
-    accumulated_data = push!(to, label)
-    b₀ = gc_bytes()
-    t₀ = time_ns()
-    local val
-    try
-        val = f()
-    finally
-        accumulated_data.time += time_ns() - t₀
-        accumulated_data.allocs += gc_bytes() - b₀
-        accumulated_data.ncalls += 1
-        pop!(to)
-    end
-    return val
 end
 
 Base.haskey(to::Record, name::String) = haskey(to.inner_timers, name)
@@ -357,57 +338,3 @@ function _flatten!(to::Record, inner_timers::Dict{String,Record})
     end
 end
 
-enable_timer!(to::Record=DEFAULT_TIMER) = to.enabled = true
-disable_timer!(to::Record=DEFAULT_TIMER) = to.enabled = false
-
-
-# Macro to selectively disable timer for expression
-macro notimeit(args...)
-    notimeit_expr(args...)
-end
-
-# Default function throws an error for the benefit of the user
-notimeit_expr(args...) = throw(ArgumentError("invalid macro usage for @notimeit, use as @notimeit [to] codeblock"))
-
-complement!() = complement!(DEFAULT_TIMER)
-function complement!(to::Record)
-    if length(to.inner_timers) == 0
-        return nothing
-    end
-    tot_time = to.accumulated_data.time
-    tot_allocs = to.accumulated_data.allocs
-    for timer in values(to.inner_timers)
-        tot_time -= timer.accumulated_data.time
-        tot_allocs -= timer.accumulated_data.allocs
-        complement!(timer)
-    end
-    tot_time = max(tot_time, 0)
-    tot_allocs = max(tot_allocs, 0)
-    if !(to.name in ["root", "Flattened"])
-        name = string("~", to.name, "~")
-        timer = Record(to.start_data, RecordData(max(1,to.accumulated_data.ncalls), tot_time, tot_allocs), Dict{String,Record}(), Record[], name, false, true, (tot_time, tot_allocs), to.name, to)
-        to.inner_timers[name] = timer
-    end
-    return to
-end
-
-# If @notimeit was called without a Record instance, use default timer
-notimeit_expr(ex::Expr) = notimeit_expr(:($(Records.DEFAULT_TIMER)), ex)
-
-# Disable timer, evaluate expression, restore timer to previous value, and return expression result
-function notimeit_expr(to, ex::Expr)
-    return quote
-        local to = $(esc(to))
-        local enabled = to.enabled
-        $(disable_timer!)(to)
-        local val
-        $(Expr(:tryfinally,
-            :(val = $(esc(ex))),
-            quote
-                if enabled
-                    $(enable_timer!)(to)
-                end
-            end))
-        val
-    end
-end

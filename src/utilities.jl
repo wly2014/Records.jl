@@ -128,31 +128,3 @@ function todict(to::Record)
         "inner_timers" => Dict{String, Any}(k => todict(v) for (k,v) in to.inner_timers)
     )
 end
-
-##########################
-# Instrumented functions #
-##########################
-
-# implemented as a callable type to get better error messages
-# (i.e. you see `F` explictly, which might be `typeof(f)` telling
-# you that `f` is involved).
-struct InstrumentedFunction{F} <: Function
-    func::F
-    t::Record
-    name::String
-end
-
-InstrumentedFunction(f, t) = InstrumentedFunction(f, t, string(repr(f)))
-
-function (inst::InstrumentedFunction)(args...; kwargs...)
-    @recordit inst.t inst.name inst.func(args...; kwargs...)
-end
-
-"""
-    (t::Record)(f, name=string(repr(f))) -> InstrumentedFunction
-
-Instruments `f` by the [`Record`](@ref) `t` returning an `InstrumentedFunction`.
-This function can be used just like `f`, but whenever it is called it stores timing
-results in `t`.
-"""
-(t::Record)(f, name=string(repr(f))) = InstrumentedFunction(f, t, name)

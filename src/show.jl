@@ -1,7 +1,7 @@
-print_timer(; kwargs...) = print_timer(stdout; kwargs...)
-print_timer(to::Record; kwargs...) = print_timer(stdout, to; kwargs...)
-print_timer(io::IO; kwargs...) = print_timer(io, DEFAULT_TIMER; kwargs...)
-print_timer(io::IO, to::Record; kwargs...) = (show(io, to; kwargs...); println(io))
+print_record!(; kwargs...) = print_record!(stdout; kwargs...)
+print_record!(to::Record; kwargs...) = print_record!(stdout, to; kwargs...)
+print_record!(io::IO; kwargs...) = print_record!(io, DEFAULT_TIMER; kwargs...)
+print_record!(io::IO, to::Record; kwargs...) = (show(io, to; kwargs...); println(io))
 
 Base.show(to::Record; kwargs...) = show(stdout, to; kwargs...)
 function Base.show(io::IO, to::Record; allocations::Bool = true, sortby::Symbol = :time, linechars::Symbol = :unicode, compact::Bool = false, title::String = "")

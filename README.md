@@ -143,7 +143,7 @@ Similar information is available for allocations:
 
 ## Settings for printing:
 
-The `print_timer([io::IO = stdout], to::Record, kwargs)`, (or `show`) takes a number of keyword arguments to change the output. They are listed here:
+The `print_record!([io::IO = stdout], to::Record, kwargs)`, (or `show`) takes a number of keyword arguments to change the output. They are listed here:
 
 * `title::String` ─ title for the timer
 * `allocations::Bool` ─ show the allocation columns (default `true`)
@@ -286,7 +286,7 @@ julia> to
 
 ## Resetting
 
-A timer is reset by calling `reset_timer!(to::Record)`. This will remove all sections and reset the start of the timer to the current time / allocation values.
+A timer is reset by calling `reset_record!(to::Record)`. This will remove all sections and reset the start of the timer to the current time / allocation values.
 
 ## Indexing into a table
 
@@ -367,17 +367,17 @@ Note that this global timer is shared among all users of the package.
 For example:
 
 ```julia
-reset_timer!()
+reset_record!()
 
 @recordit "section" sleep(0.02)
 @recordit "section2" sleep(0.1)
 
-print_timer()
+print_record!()
 ```
 
 which prints:
 ```julia
-julia> print_timer()
+julia> print_record!()
  ───────────────────────────────────────────────────────────────────
                             Time                   Allocations
                     ──────────────────────   ───────────────────────
@@ -416,7 +416,7 @@ Records.complement!(to)
 We can print the result:
 
 ```julia
-julia> print_timer(to)
+julia> print_record!(to)
  ───────────────────────────────────────────────────────────────────────
                                 Time                   Allocations
                         ──────────────────────   ───────────────────────
@@ -436,24 +436,24 @@ In order to complement the default timer simply call `Records.complement!()`.
 ## Shared Timers
 
 It is sometimes desirable for a timer to be shared across all users of the
-package.  For this purpose, `get_timer` maintains a collection of named timers
+package.  For this purpose, `get_record` maintains a collection of named timers
 defined in the package.
 
-`get_timer(timer_name::String)` retrieves the timer `timer_name` from the
+`get_record(timer_name::String)` retrieves the timer `timer_name` from the
 collection, creating a new timer if none already exists.
 
 For example:
 ```julia
 module UseTimer
-using Records: @recordit, get_timer
+using Records: @recordit, get_record
 
 function foo()
-    to = get_timer("Shared")
-    @recordit get_timer("Shared") "foo" sleep(0.1)
+    to = get_record("Shared")
+    @recordit get_record("Shared") "foo" sleep(0.1)
 end
 end
 
-@recordit get_timer("Shared") "section1" begin
+@recordit get_record("Shared") "section1" begin
     UseTimer.foo()
     sleep(0.01)
 end
@@ -461,7 +461,7 @@ end
 
 which prints:
 ```julia
-julia> print_timer(get_timer("Shared"))
+julia> print_record!(get_record("Shared"))
  ───────────────────────────────────────────────────────────────────
                             Time                   Allocations
                     ──────────────────────   ───────────────────────
@@ -474,7 +474,7 @@ julia> print_timer(get_timer("Shared"))
  ───────────────────────────────────────────────────────────────────
 ```
 
-Note that the result of `get_timer` should not be called from top-level in a
+Note that the result of `get_record` should not be called from top-level in a
 package that is getting precompiled since the retrieved timer will no longer be
 shared with other users getting a timer with the same name. Also, this function
 is not recommended to be used extensively by libraries as the namespace is
