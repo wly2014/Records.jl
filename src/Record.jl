@@ -180,21 +180,21 @@ macro recordit(args...)
 end
 
 macro recordit_debug(args...)
-    if !isdefined(__module__, :timeit_debug_enabled)
-        Core.eval(__module__, :(timeit_debug_enabled() = false))
+    if !isdefined(__module__, :recordit_debug_enabled)
+        Core.eval(__module__, :(recordit_debug_enabled() = false))
     end
 
     return timer_expr(__module__, true, args...)
 end
 
-function enable_debug_timings(m::Module)
-    if !getfield(m, :timeit_debug_enabled)()
-        Core.eval(m, :(timeit_debug_enabled() = true))
+function enable_debug_record(m::Module)
+    if !getfield(m, :recordit_debug_enabled)()
+        Core.eval(m, :(recordit_debug_enabled() = true))
     end
 end
-function disable_debug_timings(m::Module)
-    if getfield(m, :timeit_debug_enabled)()
-        Core.eval(m, :(timeit_debug_enabled() = false))
+function disable_debug_record(m::Module)
+    if getfield(m, :recordit_debug_enabled)()
+        Core.eval(m, :(recordit_debug_enabled() = false))
     end
 end
 
@@ -250,7 +250,7 @@ function _timer_expr(m::Module, is_debug::Bool, to::Union{Symbol, Expr, Record},
 
     if is_debug
         return quote
-            if $m.timeit_debug_enabled()
+            if $m.recordit_debug_enabled()
                 $timeit_block
             else
                 $ex

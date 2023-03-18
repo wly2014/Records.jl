@@ -304,10 +304,10 @@ function debug_test()
     @recordit_debug to_debug "sleep" sleep(0.001)
 end
 
-Records.disable_debug_timings(@__MODULE__)
+Records.disable_debug_record(@__MODULE__)
 debug_test()
 @test !("sleep" in keys(to_debug.inner_timers))
-Records.enable_debug_timings(@__MODULE__)
+Records.enable_debug_record(@__MODULE__)
 debug_test()
 @test "sleep" in keys(to_debug.inner_timers)
 
@@ -320,15 +320,15 @@ to_debug = Record()
     return x + y * x
 end
 
-Records.disable_debug_timings(@__MODULE__)
+Records.disable_debug_record(@__MODULE__)
 baz(1, 2.0)
 @test isempty(to_debug.inner_timers)
 
-Records.enable_debug_timings(@__MODULE__)
+Records.enable_debug_record(@__MODULE__)
 baz(1, 2.0)
 @test "baz" in keys(to_debug.inner_timers)
 @test "sleep" in keys(to_debug.inner_timers["baz"].inner_timers)
-Records.disable_debug_timings(@__MODULE__)
+Records.disable_debug_record(@__MODULE__)
 
 to = Record()
 @recordit to "section1" sleep(0.02)
@@ -406,7 +406,7 @@ end
    zeros(dims)
 end
 @inferred make_zeros()
-Records.enable_debug_timings(@__MODULE__)
+Records.enable_debug_record(@__MODULE__)
 @inferred make_zeros()
 =#
 
@@ -416,9 +416,9 @@ to = Record()
    g(x)
 end
 @test f(3) == 6
-Records.enable_debug_timings(@__MODULE__)
+Records.enable_debug_record(@__MODULE__)
 @test f(3) == 6
-Records.disable_debug_timings(@__MODULE__)
+Records.disable_debug_record(@__MODULE__)
 
 @testset "Not too many allocations #59" begin
     function doit(timer, n)
@@ -488,7 +488,7 @@ end
    zeros(dims)
 end
 @inferred make_zeros()
-Records.enable_debug_timings(@__MODULE__)
+Records.enable_debug_record(@__MODULE__)
 @inferred make_zeros()
 
 @testset "merge" begin
